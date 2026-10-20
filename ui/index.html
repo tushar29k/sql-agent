@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>sql-agent — ask the database in plain English</title>
+<style>
+:root{
+  --bg:#08060f; --panel:#0d0a1a; --panel2:#141026; --line:#2c2150;
+  --vio:#a78bfa; --bright:#e9e2fd; --dim:#8d83b3;
+  --green:#4ade80; --amber:#fbbf24; --red:#f87171; --text:#ddd6f2;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);
+  font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;
+  line-height:1.65;padding:1.6rem 1.1rem;max-width:920px;margin:0 auto;font-size:15px}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:60;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.20) 0 1px, transparent 1px 3px);opacity:.35}
+header.top{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.3rem}
+.dot{width:10px;height:10px;border-radius:50%;background:#3a4a41}
+.dot.ok{background:var(--green);box-shadow:0 0 10px var(--green)}
+h1{font-size:1.15rem;letter-spacing:2px;color:var(--bright)}
+h1 span{color:var(--vio)}
+.sys{margin-left:auto;color:var(--dim);font-size:.78rem;letter-spacing:1px}
+.sub{color:var(--dim);font-size:.85rem;margin:.5rem 0 1.2rem;max-width:70ch}
+.sub b{color:var(--amber);font-weight:normal}
+.panel{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  padding:1rem 1.1rem;margin-bottom:1.1rem}
+.panel h2{font-size:.8rem;letter-spacing:2px;color:var(--vio);margin-bottom:.7rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem}
+.step{border:1px solid var(--line);border-radius:8px;padding:.7rem .8rem;background:var(--panel2)}
+.step b{color:var(--bright);display:block;font-size:.85rem;margin-bottom:.25rem}
+.step p{color:var(--dim);font-size:.8rem}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}
+.chip{border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  border-radius:999px;padding:.35rem .8rem;font-family:inherit;font-size:.78rem;cursor:pointer}
+.chip:hover{border-color:var(--vio);color:var(--bright)}
+.row{display:flex;gap:.7rem;align-items:stretch}
+input[type=text]{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  color:var(--bright);padding:.75rem 1rem;font-size:.95rem;font-family:inherit;min-width:0}
+input:focus{outline:none;border-color:var(--vio)}
+button.go{background:var(--vio);border:1px solid var(--vio);color:#0f0a24;font-family:inherit;
+  font-weight:bold;letter-spacing:1px;padding:.75rem 1.5rem;border-radius:8px;cursor:pointer}
+pre.dump{background:#050309;border:1px solid var(--line);border-radius:6px;
+  padding:.6rem .8rem;overflow-x:auto;font-size:.8rem;color:var(--bright);white-space:pre-wrap}
+.sqlq{color:var(--vio)}
+.trace{border-left:2px solid var(--amber);padding:.4rem .7rem;margin:.5rem 0;font-size:.82rem;color:var(--dim)}
+.trace .err{color:var(--red)}
+.trace .fix{color:var(--green)}
+table{border-collapse:collapse;margin-top:.6rem;font-size:.85rem}
+th,td{border:1px solid var(--line);padding:.4rem .7rem;text-align:left}
+th{color:var(--vio);font-weight:normal;letter-spacing:1px}
+.stats{display:flex;gap:1.4rem;flex-wrap:wrap}
+.stat b{display:block;font-size:1.3rem;color:var(--vio)}
+.stat span{color:var(--dim);font-size:.75rem;letter-spacing:1px}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="dot" id="livedot"></span>
+  <h1>sql<span>-agent</span></h1>
+  <span class="sys" id="backend">checking backend…</span>
+</header>
+<p class="sub">Ask a question in plain English, get an answer from a real
+SQLite database. When the SQL is wrong — a bad table, a bad column —
+the agent <b>reads the database error and repairs it against the live
+schema</b>. Every attempt is shown below, fixes included.</p>
+
+<div class="panel">
+  <h2>HOW IT WORKS</h2>
+  <div class="steps">
+    <div class="step"><b>1 · Write</b><p>The brain (mock patterns, or a real LLM behind the same interface) writes one SQLite query against the schema it was shown.</p></div>
+    <div class="step"><b>2 · Execute</b><p>The query runs for real against the seeded shop database — customers, products, orders, 120 days of rows.</p></div>
+    <div class="step"><b>3 · Repair</b><p>On an error, the agent diffs the error against the live schema: bad table/column names get swapped to their closest real match.</p></div>
+    <div class="step"><b>4 · Retry, bounded</b><p>Max 2 repairs. If nothing fixes it, the agent fails loudly with the last error — it never silently returns wrong numbers.</p></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>ASK SOMETHING</h2>
+  <div class="chips" id="samples"></div>
+  <div class="row">
+    <input type="text" id="q" placeholder="ask about revenue, orders, customers…" />
+    <button class="go" id="run">ASK</button>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>TRACE — EVERY ATTEMPT, FIXES INCLUDED</h2>
+  <div id="out"><p style="color:var(--dim)">nothing asked yet.</p></div>
+</div>
+
+<div class="panel">
+  <h2>EVALS — EXECUTION ACCURACY (offline)</h2>
+  <div class="stats">
+    <div class="stat"><b>13/13</b><span>golden questions return the right rows — compared as row sets, never as SQL strings</span></div>
+    <div class="stat"><b>1/13</b><span>win came from the self-correction loop (bad table name repaired, right answer returned)</span></div>
+  </div>
+  <p style="color:var(--dim);font-size:.8rem;margin-top:.6rem">Reproduce: <code>python3 evals/run_eval.py</code> — the reference answers are independent SQL, written from the schema, not from the agent's output.</p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var out = document.getElementById('out');
+  var qEl = document.getElementById('q');
+  fetch('/info').then(function(r){ return r.json(); }).then(function(info){
+    document.getElementById('livedot').className = 'dot ok';
+    document.getElementById('backend').textContent = info.real_llm
+      ? ('live llm · ' + info.provider) : 'offline mock brain · deterministic';
+  }).catch(function(){});
+  fetch('/samples').then(function(r){ return r.json(); }).then(function(s){
+    var chips = document.getElementById('samples');
+    s.samples.forEach(function(q){
+      var b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = q.length > 44 ? q.slice(0, 44) + '…' : q;
+      b.onclick = function(){ qEl.value = q; document.getElementById('run').click(); };
+      chips.appendChild(b);
+    });
+  });
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  document.getElementById('run').onclick = function(){
+    var q = qEl.value.trim(); if (!q) return;
+    out.innerHTML = '<p style="color:var(--dim)">running…</p>';
+    fetch('/ask', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({question: q})}).then(function(r){ return r.json(); })
+    .then(function(res){
+      var html = res.trace.map(function(a){
+        var h = '<div class="trace">attempt ' + a.attempt +
+          ' · <span class="sqlq">' + esc(a.sql) + '</span>';
+        if (a.error) h += '<br><span class="err">✕ ' + esc(a.error) + '</span>';
+        if (a.repair) h += '<br><span class="fix">→ repaired: ' + esc(a.repair) + '</span>';
+        if (a.error === null) h += '<br><span class="fix">✓ ' + a.rows + ' row(s)</span>';
+        return h + '</div>';
+      }).join('');
+      if (res.rows && res.rows.length) {
+        var cols = Object.keys(res.rows[0]);
+        html += '<table><tr>' + cols.map(function(c){ return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>' +
+          res.rows.map(function(r){
+            return '<tr>' + cols.map(function(c){ return '<td>' + esc(r[c]) + '</td>'; }).join('') + '</tr>';
+          }).join('') + '</table>';
+      } else if (res.error) {
+        html += '<p class="err" style="color:var(--red)">failed after ' + res.attempts +
+          ' attempts: ' + esc(res.error) + '</p>';
+      }
+      if (res.corrected) html = '<p style="color:var(--green)">self-corrected — final answer came from repaired SQL</p>' + html;
+      out.innerHTML = html;
+    }).catch(function(){
+      out.innerHTML = '<p style="color:var(--red)">backend unreachable — is the service awake?</p>';
+    });
+  };
+  qEl.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('run').click();
+  });
+})();
+</script>
+</body>
+</html>
