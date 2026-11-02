@@ -22,6 +22,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import db as dbmod
+from validate import validate_sql
 
 _REV = ("(SELECT SUM(oi.quantity * p.price) FROM order_items oi "
         "JOIN products p ON p.id = oi.product_id "
@@ -143,9 +144,11 @@ def make_brain():
 
 
 class SQLAgent:
-    def __init__(self, brain=None, db_path=dbmod.DB_PATH):
+    def __init__(self, brain=None, db_path=dbmod.DB_PATH,
+                 allow_destructive=False):
         self.brain = brain or make_brain()
         self.db_path = db_path
+        self.allow_destructive = allow_destructive
         self.schema = dbmod.schema_summary(db_path)
 
     def _execute(self, sql):
@@ -177,10 +180,24 @@ class SQLAgent:
                 return fixed, f"table '{bad}' -> '{close[0]}' (schema)"
         return None, None
 
-    def ask(self, question):
+    def ask(self, question, approve_destructive=False):
         trace = []
         sql = self.brain.sql(question, self.schema)
+        allow = self.allow_destructive or approve_destructive
         for attempt in range(3):  # 1 try + at most 2 repairs
+            # gate runs before execute on every attempt — a brain
+            # rewrite after an error could itself turn destructive
+            status, reason = validate_sql(sql, allow_destructive=allow)
+            if status != "ok":
+                trace.append({"attempt": attempt + 1, "sql": sql,
+                              "error": reason, "rows": None,
+                              "blocked": status == "blocked",
+                              "needs_approval": status == "needs_approval"})
+                return {"question": question, "sql": sql, "rows": None,
+                        "attempts": len(trace), "corrected": False,
+                        "error": reason, "blocked": status == "blocked",
+                        "needs_approval": status == "needs_approval",
+                        "trace": trace, "brain": self.brain.name}
             rows, err = self._execute(sql)
             trace.append({"attempt": attempt + 1, "sql": sql,
                           "error": err,

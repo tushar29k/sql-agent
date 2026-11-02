@@ -36,6 +36,7 @@ SAMPLES = [
 @app.post("/ask")
 def ask(body: dict):
     q = body["question"]
+    approve = bool(body.get("approve_destructive"))
     if "(broken SQL demo)" in q:
         # hand the corrector genuinely broken SQL (bad table + bad column)
         bad = ("SELECT COUNT(*) AS orders FROM customer c "
@@ -47,7 +48,7 @@ def ask(body: dict):
         finally:
             agent.brain.sql = orig
         return out
-    return agent.ask(q)
+    return agent.ask(q, approve_destructive=approve)
 
 
 @app.get("/schema")
