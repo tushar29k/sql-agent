@@ -1,5 +1,20 @@
 # sql-agent
 
+## Release notes — v1.1 (2026-11-02)
+
+Measured numbers, offline, mock brain — full build-up in `RELEASES.md`.
+
+- **Guardrail evals: 11/11** — DROP, DELETE, UPDATE, INSERT, stacked
+  queries, destructive CTEs and a prompt-injection DROP are all refused
+  with the database unchanged; an approved write on a throwaway DB
+  actually lands. Run them with `python3 evals/run_guardrails.py`.
+- **Validation gate** — SELECT runs by default; destructive statements
+  need explicit approval (`POST /ask` accepts `approve_destructive`),
+  and smuggled statements are blocked outright (see
+  `docs/adr/0004-validation-gate.md`).
+- **Execution accuracy still 13/13**, and CI now gates every push on
+  byte-compile + both eval suites.
+
 ## Release notes — v1.0 (2026-10-20)
 
 Measured numbers, offline, mock brain — every figure below comes from
@@ -74,6 +89,8 @@ question
 
 ```
 POST /ask      {"question": "..."} -> {sql, rows, attempts, corrected, trace[]}
+               {"question": "...", "approve_destructive": true} runs a
+               destructive statement the gate paused — default is refused
 GET  /schema   the live schema
 GET  /samples  seeded questions (incl. the broken-SQL demo)
 GET  /info     backend honesty badge
