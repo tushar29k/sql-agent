@@ -155,6 +155,9 @@ class SQLAgent:
         con = dbmod.connect(self.db_path)
         try:
             rows = [dict(r) for r in con.execute(sql)]
+            # without this, an approved write silently rolls back on
+            # close — the gate would approve a DELETE that never lands
+            con.commit()
             return rows, None
         except Exception as e:  # noqa: BLE001 - errors are the input
             return None, f"{type(e).__name__}: {e}"
