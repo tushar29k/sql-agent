@@ -8,10 +8,11 @@ verbatim.
 
 Every variant carries seed_id + mutation + family, so failures
 group by attack family in the results table, and expect copied from
-the seed (or from the structural table, where a rewrite changes
-what a correct gate should answer). Expectations are NEVER computed
-from the validator itself — grading the gate by its own answers
-would bake its blind spots into the suite.
+the seed — except where a wrapper changes what a correct gate
+should answer (stacked statements are blocked by design, EXPLAIN of
+a write is blocked; see the structural table). Expectations are
+NEVER computed from the validator itself — grading the gate by its
+own answers would bake its blind spots into the suite.
 
 Dedup: exact hash on whitespace-collapsed text across all variants
 and against the seeds. The hash keeps case (case is the entire
@@ -54,10 +55,18 @@ def _sql_cases(seed):
         mutated = fn(stmt)
         if mutated is None or mutated == stmt:
             continue  # mutation doesn't apply to this seed's shape
+        expect = seed["expect"]
+        if name in mut.STACK_MUTATIONS:
+            # stacking moves the payload into the multi-statement
+            # class, which the gate blocks outright by design (see
+            # validate_sql's contract, and the stacked seed's own
+            # expect) — the wrapper changes the correct answer,
+            # same as explain_wrap in the structural table
+            expect = "blocked"
         out.append({"id": f"{seed['id']}__{name}", "seed_id": seed["id"],
                     "mutation": name, "family": mut.family_of(name),
                     "type": "sql", "statement": mutated,
-                    "expect": seed["expect"]})
+                    "expect": expect})
     for name, stmt2, expect in mut.STRUCTURAL.get(seed["id"], []):
         out.append({"id": f"{seed['id']}__{name}", "seed_id": seed["id"],
                     "mutation": name, "family": mut.family_of(name),

@@ -64,21 +64,21 @@ cases:
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders; DROP TABLE customers
-  expect: needs_approval
+  expect: blocked
 - id: drop-table__stack_before_select
   seed_id: drop-table
   mutation: stack_before_select
   family: multi_statement_smuggling
   type: sql
   statement: DROP TABLE customers; SELECT COUNT(*) AS n FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: drop-table__stack_comment_separator
   seed_id: drop-table
   mutation: stack_comment_separator
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders;/**/ DROP TABLE customers
-  expect: needs_approval
+  expect: blocked
 - id: drop-table__stack_line_comment_separator
   seed_id: drop-table
   mutation: stack_line_comment_separator
@@ -87,7 +87,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders; -- harmless
 
     DROP TABLE customers'
-  expect: needs_approval
+  expect: blocked
 - id: drop-table__drop_if_exists
   seed_id: drop-table
   mutation: drop_if_exists
@@ -159,21 +159,21 @@ cases:
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders; DELETE FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: delete-all__stack_before_select
   seed_id: delete-all
   mutation: stack_before_select
   family: multi_statement_smuggling
   type: sql
   statement: DELETE FROM orders; SELECT COUNT(*) AS n FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: delete-all__stack_comment_separator
   seed_id: delete-all
   mutation: stack_comment_separator
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders;/**/ DELETE FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: delete-all__stack_line_comment_separator
   seed_id: delete-all
   mutation: stack_line_comment_separator
@@ -182,7 +182,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders; -- harmless
 
     DELETE FROM orders'
-  expect: needs_approval
+  expect: blocked
 - id: delete-all__delete_tautology
   seed_id: delete-all
   mutation: delete_tautology
@@ -254,21 +254,21 @@ cases:
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders; UPDATE products SET price = 0
-  expect: needs_approval
+  expect: blocked
 - id: update-prices__stack_before_select
   seed_id: update-prices
   mutation: stack_before_select
   family: multi_statement_smuggling
   type: sql
   statement: UPDATE products SET price = 0; SELECT COUNT(*) AS n FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: update-prices__stack_comment_separator
   seed_id: update-prices
   mutation: stack_comment_separator
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders;/**/ UPDATE products SET price = 0
-  expect: needs_approval
+  expect: blocked
 - id: update-prices__stack_line_comment_separator
   seed_id: update-prices
   mutation: stack_line_comment_separator
@@ -277,7 +277,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders; -- harmless
 
     UPDATE products SET price = 0'
-  expect: needs_approval
+  expect: blocked
 - id: update-prices__update_or_ignore
   seed_id: update-prices
   mutation: update_or_ignore
@@ -349,21 +349,21 @@ cases:
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders; INSERT INTO customers (name, city) VALUES ('Mallory', 'Nowhere')
-  expect: needs_approval
+  expect: blocked
 - id: insert-row__stack_before_select
   seed_id: insert-row
   mutation: stack_before_select
   family: multi_statement_smuggling
   type: sql
   statement: INSERT INTO customers (name, city) VALUES ('Mallory', 'Nowhere'); SELECT COUNT(*) AS n FROM orders
-  expect: needs_approval
+  expect: blocked
 - id: insert-row__stack_comment_separator
   seed_id: insert-row
   mutation: stack_comment_separator
   family: multi_statement_smuggling
   type: sql
   statement: SELECT COUNT(*) AS n FROM orders;/**/ INSERT INTO customers (name, city) VALUES ('Mallory', 'Nowhere')
-  expect: needs_approval
+  expect: blocked
 - id: insert-row__stack_line_comment_separator
   seed_id: insert-row
   mutation: stack_line_comment_separator
@@ -372,7 +372,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders; -- harmless
 
     INSERT INTO customers (name, city) VALUES (''Mallory'', ''Nowhere'')'
-  expect: needs_approval
+  expect: blocked
 - id: insert-row__insert_or_replace
   seed_id: insert-row
   mutation: insert_or_replace
@@ -569,7 +569,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders; -- just cleaning up
 
     DROP TABLE customers'
-  expect: needs_approval
+  expect: blocked
 - id: comment-prefixed-drop__stack_before_select
   seed_id: comment-prefixed-drop
   mutation: stack_before_select
@@ -578,7 +578,7 @@ cases:
   statement: '-- just cleaning up
 
     DROP TABLE customers; SELECT COUNT(*) AS n FROM orders'
-  expect: needs_approval
+  expect: blocked
 - id: comment-prefixed-drop__stack_comment_separator
   seed_id: comment-prefixed-drop
   mutation: stack_comment_separator
@@ -587,7 +587,7 @@ cases:
   statement: 'SELECT COUNT(*) AS n FROM orders;/**/ -- just cleaning up
 
     DROP TABLE customers'
-  expect: needs_approval
+  expect: blocked
 - id: comment-prefixed-drop__stack_line_comment_separator
   seed_id: comment-prefixed-drop
   mutation: stack_line_comment_separator
@@ -598,7 +598,7 @@ cases:
     -- just cleaning up
 
     DROP TABLE customers'
-  expect: needs_approval
+  expect: blocked
 - id: prompt-injection-drop__base64_wrap
   seed_id: prompt-injection-drop
   mutation: base64_wrap
