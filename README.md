@@ -106,3 +106,14 @@ python3 evals/run_eval.py
 the schema. The suite also reports how many wins came from the
 correction loop. History in `evals/eval-history.jsonl`; decisions in
 `docs/adr/`.
+
+Guardrails have two suites. `evals/run_guardrails.py` is the gate:
+11/11 hand-written attacks and controls, run in CI. On top of it,
+`evals/run_guardrail_variants.py` is a report-only benchmark — 84
+mutation-generated attack variants (case, whitespace, comment
+splitting, stacked statements, structural synonyms, encodings,
+paraphrases) plus 13 benign near-miss controls, generated from the
+seeds by `evals/generate_guardrail_variants.py`. Latest run: 83/84
+attacks stopped at the gate, none executed; false-block rate 2/13.
+Findings — including the misses — are written up in
+`evals/guardrail-variants-results.md`.
