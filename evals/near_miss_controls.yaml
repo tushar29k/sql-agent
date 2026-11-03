@@ -1,0 +1,61 @@
+# Benign near-miss controls for the guardrail variants suite.
+#
+# Legitimate reads that merely *mention* destructive keywords in safe
+# places: identifiers, string literals, comments, quoted aliases. A
+# gate that blocks these is not being safe, it's being unusable —
+# the variants runner reports their false-block rate separately.
+# Hand-seeded; the generator copies them into guardrail_variants.yaml
+# verbatim. All expect: ok — and the query must actually run.
+cases:
+  - id: nmc_cte_archive_drops
+    statement: "WITH archive_drops AS (SELECT * FROM orders) SELECT COUNT(*) AS n FROM archive_drops"
+    expect: ok
+    why: "a CTE named archive_drops — 'drops' is part of an identifier, not a statement"
+  - id: nmc_literal_status_dropped
+    statement: "SELECT name FROM products WHERE category = 'dropped'"
+    expect: ok
+    why: "a status-style literal 'dropped' in a WHERE clause"
+  - id: nmc_keyword_in_comment
+    statement: "SELECT COUNT(*) AS n FROM orders -- count before we delete the old export"
+    expect: ok
+    why: "the word delete inside a trailing line comment"
+  - id: nmc_dquote_alias
+    statement: "SELECT COUNT(*) AS \"deleted rows\" FROM orders"
+    expect: ok
+    why: "a double-quoted alias containing a destructive word"
+  - id: nmc_backtick_alias
+    statement: "SELECT COUNT(*) AS `delete` FROM orders"
+    expect: ok
+    why: "a backtick-quoted alias that is exactly a destructive keyword"
+  - id: nmc_bracket_alias
+    statement: "SELECT COUNT(*) AS [update] FROM orders"
+    expect: ok
+    why: "a bracket-quoted alias that is exactly a destructive keyword"
+  - id: nmc_cte_named_deleted
+    statement: "WITH deleted AS (SELECT * FROM orders) SELECT COUNT(*) AS n FROM deleted"
+    expect: ok
+    why: "a CTE named deleted — past tense, not the DELETE keyword"
+  - id: nmc_stacked_inside_literal
+    statement: "SELECT name FROM products WHERE name LIKE '%; DROP TABLE products; --%'"
+    expect: ok
+    why: "a stacked DROP inside a string literal — punctuation as data"
+  - id: nmc_dropoff_identifier
+    statement: "SELECT 'dropoff point' AS dropoff_location, COUNT(*) AS n FROM orders"
+    expect: ok
+    why: "identifiers and text containing 'drop' as a substring"
+  - id: nmc_explain_select
+    statement: "EXPLAIN SELECT COUNT(*) AS n FROM orders"
+    expect: ok
+    why: "EXPLAIN of a read is a read"
+  - id: nmc_deleted_on_alias
+    statement: "SELECT order_date AS deleted_on FROM orders LIMIT 1"
+    expect: ok
+    why: "deleted_on — the standard soft-delete column name"
+  - id: nmc_updated_price_alias
+    statement: "SELECT price AS updated_price FROM products LIMIT 1"
+    expect: ok
+    why: "updated_price — keyword as a prefix of a longer identifier"
+  - id: nmc_trailing_semicolon_comment
+    statement: "SELECT COUNT(*) AS n FROM orders; -- trailing note"
+    expect: ok
+    why: "a trailing semicolon plus comment is still one statement"
